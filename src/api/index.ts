@@ -9,6 +9,7 @@ import {
   catalogCacheKey,
   catalogJsonResponse,
 } from "./edge-cache";
+import { isEmbedCrawler, memeEmbedResponse } from "./embed-meta";
 import { galleryPage } from "./gallery";
 
 const UUID_PATH = /^\/([0-9a-f-]{36})$/i;
@@ -47,7 +48,7 @@ export async function handleApiRequest(
       if (cached) return cached;
 
       const catalog = await getCatalog(env.TPAAS_KV);
-      const response = galleryPage(catalog, env.ASSETS_BASE_URL);
+      const response = galleryPage(catalog, env.ASSETS_BASE_URL, url.href);
       cacheCatalogResponse(ctx, cacheKey, response);
       return response;
     }
@@ -57,6 +58,9 @@ export async function handleApiRequest(
       const entry = pickRandom(catalog.entries);
       if (!entry) {
         return new Response("No approved trolley problems yet", { status: 404 });
+      }
+      if (isEmbedCrawler(request)) {
+        return memeEmbedResponse(entry, url.href, env.ASSETS_BASE_URL, "no-store");
       }
       return serveApprovedImage(env, entry.id, entry.ext, "no-store");
     }
@@ -71,6 +75,9 @@ export async function handleApiRequest(
       }
       if (!entry) {
         return new Response("Not Found", { status: 404 });
+      }
+      if (isEmbedCrawler(request)) {
+        return memeEmbedResponse(entry, url.href, env.ASSETS_BASE_URL, "public, max-age=3600");
       }
       const target = approvedUrl(env.ASSETS_BASE_URL, entry.id, entry.ext);
       return redirectTo(target, "public, max-age=3600");

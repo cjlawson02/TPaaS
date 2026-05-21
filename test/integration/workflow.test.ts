@@ -59,6 +59,19 @@ describe("submit → approve → serve", () => {
     expect(randomRes.headers.get("Cache-Control")).toBe("no-store");
     expect(new Uint8Array(await randomRes.arrayBuffer())).toEqual(image);
 
+    const embedRes = await worker.fetch(
+      new Request("https://tpaas.test/random", {
+        headers: { "User-Agent": "Discordbot/2.0" },
+      }),
+      testEnv,
+      apiCtx,
+    );
+    expect(embedRes.status).toBe(200);
+    expect(embedRes.headers.get("Content-Type")).toBe("text/html; charset=utf-8");
+    const embedHtml = await embedRes.text();
+    expect(embedHtml).toContain('property="og:image"');
+    expect(embedHtml).toContain(id);
+
     expect(await testEnv.TPAAS_R2.get(approvedKey(id, "jpg"))).not.toBeNull();
     expect(await testEnv.TPAAS_PENDING_R2.get(pendingKey(id, "jpg"))).toBeNull();
   });

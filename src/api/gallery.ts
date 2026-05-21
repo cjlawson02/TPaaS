@@ -1,6 +1,7 @@
 import { approvedUrl } from "../shared/r2-keys";
 import { CATALOG_CACHE_SECONDS } from "../shared/types";
 import type { Attribution, Catalog } from "../shared/types";
+import { galleryEmbedMeta } from "./embed-meta";
 
 function attributionCaption(attribution: Attribution): string {
   const label = escapeHtml(attribution.label);
@@ -19,7 +20,17 @@ function escapeHtml(value: string): string {
     .replaceAll('"', "&quot;");
 }
 
-export function galleryPage(catalog: Catalog, assetsBaseUrl: string): Response {
+export function galleryPage(
+  catalog: Catalog,
+  assetsBaseUrl: string,
+  pageUrl: string,
+): Response {
+  const previewEntry = catalog.entries[0];
+  const previewImageUrl = previewEntry
+    ? approvedUrl(assetsBaseUrl, previewEntry.id, previewEntry.ext)
+    : undefined;
+  const embedMeta = galleryEmbedMeta(catalog.entries.length, pageUrl, previewImageUrl);
+
   const body =
     catalog.entries.length === 0
       ? '<p class="empty">No approved trolley problems yet.</p>'
@@ -42,6 +53,7 @@ export function galleryPage(catalog: Catalog, assetsBaseUrl: string): Response {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TPaaS Gallery</title>
+  ${embedMeta}
   <style>
     * { box-sizing: border-box; }
     body {
