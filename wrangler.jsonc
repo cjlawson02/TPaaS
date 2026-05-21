@@ -1,0 +1,60 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tpaas",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-20",
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "vars": {
+    "ASSETS_BASE_URL": "https://assets.tpaas.chrislawson.dev",
+    "SUBMIT_BASE_URL": "https://tpaas.chrislawson.dev",
+    "DISCORD_APPLICATION_ID": "1506894647069511781",
+    "DISCORD_REVIEW_CHANNEL_ID": "1506895204504965250"
+  },
+  "routes": [
+    {
+      "pattern": "tpaas.chrislawson.dev",
+      "custom_domain": true
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "TPAAS_KV",
+      "id": "10a10ef3b3e04ef590b81e1851763fd5"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "TPAAS_R2",
+      "bucket_name": "tpaas-assets"
+    },
+    {
+      "binding": "TPAAS_PENDING_R2",
+      "bucket_name": "tpaas-pending"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "API_LIMIT",
+      "namespace_id": "1001",
+      "simple": { "limit": 300, "period": 60 }
+    },
+    {
+      "name": "SUBMIT_LIMIT",
+      "namespace_id": "1002",
+      "simple": { "limit": 10, "period": 60 }
+    },
+    {
+      "name": "PREVIEW_LIMIT",
+      "namespace_id": "1003",
+      "simple": { "limit": 120, "period": 60 }
+    },
+    {
+      "name": "DISCORD_LIMIT",
+      "namespace_id": "1004",
+      "simple": { "limit": 60, "period": 60 }
+    }
+  ]
+}

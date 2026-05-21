@@ -1,0 +1,82 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run types:check
+      - run: npm run typecheck
+      - run: npm test
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify production config
+        run: |
+          if grep -q 'REPLACE_WITH_KV_NAMESPACE_ID' wrangler.jsonc; then
+            echo "::error::Set your KV namespace ID in wrangler.jsonc before deploying."
+            exit 1
+          fi
+          if grep -q 'REPLACE_WITH_DISCORD_APPLICATION_ID\|REPLACE_WITH_DISCORD_REVIEW_CHANNEL_ID' wrangler.jsonc; then
+            echo "::error::Set Discord vars in wrangler.jsonc before deploying."
+            exit 1
+          fi
+
+      - name: Verify Discord reviewer secret
+        env:
+          DISCORD_REVIEW_USER_IDS: ${{ secrets.DISCORD_REVIEW_USER_IDS }}
+        run: |
+          if [ -z "$DISCORD_REVIEW_USER_IDS" ]; then
+            echo "::error::Set GitHub secret DISCORD_REVIEW_USER_IDS before deploying."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Deploy worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+          secrets: |
+            DISCORD_PUBLIC_KEY
+            DISCORD_BOT_TOKEN
+            DISCORD_REVIEW_USER_IDS
+        env:
+          DISCORD_PUBLIC_KEY: ${{ secrets.DISCORD_PUBLIC_KEY }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_REVIEW_USER_IDS: ${{ secrets.DISCORD_REVIEW_USER_IDS }}
+
+      - name: Smoke test health
+        run: curl -fsS https://tpaas.chrislawson.dev/health

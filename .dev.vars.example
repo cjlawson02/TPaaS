@@ -1,0 +1,5 @@
+# Local secrets for `wrangler dev` (copy to .dev.vars — never commit .dev.vars)
+DISCORD_PUBLIC_KEY=
+DISCORD_BOT_TOKEN=
+DISCORD_REVIEW_USER_IDS=
+DISCORD_REVIEW_CHANNEL_ID=

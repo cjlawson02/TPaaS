@@ -1,0 +1,51 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tpaas-integration",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-20",
+  "vars": {
+    "ASSETS_BASE_URL": "https://assets.test",
+    "SUBMIT_BASE_URL": "https://tpaas.test",
+    "DISCORD_APPLICATION_ID": "test-app-id",
+    "DISCORD_REVIEW_USER_IDS": "reviewer-1",
+    "DISCORD_REVIEW_CHANNEL_ID": "channel-1"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "TPAAS_KV",
+      "id": "integration-test-kv"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "TPAAS_R2",
+      "bucket_name": "integration-test-assets"
+    },
+    {
+      "binding": "TPAAS_PENDING_R2",
+      "bucket_name": "integration-test-pending"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "API_LIMIT",
+      "namespace_id": "9001",
+      "simple": { "limit": 1000, "period": 60 }
+    },
+    {
+      "name": "SUBMIT_LIMIT",
+      "namespace_id": "9002",
+      "simple": { "limit": 1000, "period": 60 }
+    },
+    {
+      "name": "PREVIEW_LIMIT",
+      "namespace_id": "9003",
+      "simple": { "limit": 1000, "period": 60 }
+    },
+    {
+      "name": "DISCORD_LIMIT",
+      "namespace_id": "9004",
+      "simple": { "limit": 1000, "period": 60 }
+    }
+  ]
+}
