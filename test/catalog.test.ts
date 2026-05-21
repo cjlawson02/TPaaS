@@ -105,7 +105,7 @@ describe("appendToCatalog", () => {
       "cat:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jpg",
       "",
     ]);
-    expect(put.mock.calls[1]?.[0]).toBe("cat:version");
+    expect(put).toHaveBeenNthCalledWith(2, "cat:version", expect.any(String));
     expect(del.mock.calls).toEqual([[CATALOG_SNAPSHOT_KEY]]);
   });
 });

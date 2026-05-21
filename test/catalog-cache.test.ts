@@ -40,7 +40,8 @@ describe("findInCatalog", () => {
 
 describe("getCatalog", () => {
   async function loadGetCatalog() {
-    const mod = await import(`../src/api/catalog-cache?test=${Math.random()}`);
+    vi.resetModules();
+    const mod = await import("../src/api/catalog-cache");
     return mod.getCatalog;
   }
 
