@@ -1,26 +1,50 @@
 import { readCatalog } from "../shared/catalog";
-import { CATALOG_CACHE_TTL_MS, CATALOG_VERSION_KEY } from "../shared/types";
+import { CATALOG_CACHE_TTL_MS } from "../shared/types";
 import type { Catalog, CatalogEntry } from "../shared/types";
+import { purgeCatalogEdgeCache } from "./edge-cache";
 
 let cached: Catalog | null = null;
 let cachedAt = 0;
 let idIndex: Map<string, CatalogEntry> | null = null;
+let loading: Promise<Catalog> | null = null;
 
+function applyCache(catalog: Catalog): Catalog {
+  cached = catalog;
+  cachedAt = Date.now();
+  idIndex = new Map(catalog.entries.map((entry) => [entry.id, entry]));
+  return catalog;
+}
+
+export function invalidateCatalogCache(): void {
+  cached = null;
+  cachedAt = 0;
+  idIndex = null;
+  loading = null;
+}
+
+export async function purgeCatalogCaches(origin: string): Promise<void> {
+  invalidateCatalogCache();
+  await purgeCatalogEdgeCache(origin);
+}
+
+/** In-isolate catalog cache — zero KV reads while TTL is valid. */
 export async function getCatalog(kv: KVNamespace): Promise<Catalog> {
   const now = Date.now();
   if (cached && now - cachedAt < CATALOG_CACHE_TTL_MS) {
-    const versionRaw = await kv.get(CATALOG_VERSION_KEY);
-    const version = versionRaw ? Number(versionRaw) : 0;
-    if (cached.version === version) {
-      return cached;
-    }
+    return cached;
   }
 
-  const catalog = await readCatalog(kv);
-  cached = catalog;
-  cachedAt = now;
-  idIndex = new Map(catalog.entries.map((e) => [e.id, e]));
-  return catalog;
+  if (loading) {
+    return loading;
+  }
+
+  loading = readCatalog(kv)
+    .then(applyCache)
+    .finally(() => {
+      loading = null;
+    });
+
+  return loading;
 }
 
 export function findCachedEntry(id: string): CatalogEntry | undefined {

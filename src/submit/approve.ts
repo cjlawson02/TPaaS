@@ -6,6 +6,7 @@ import {
   catalogEntryKey,
   deletePending,
   getPending,
+  removeCatalogEntry,
 } from "../shared/catalog";
 import { deleteDedup, putDedup } from "../shared/dedup";
 import { approvedKey } from "../shared/r2-keys";
@@ -25,6 +26,7 @@ export async function approveSubmission(
     return { ok: false, error: "Pending record missing content hash" };
   }
 
+  const cacheOrigin = new URL(env.SUBMIT_BASE_URL).origin;
   const entryKey = catalogEntryKey(id, pending.ext);
   if (await env.TPAAS_KV.get(entryKey) !== null) {
     await discardPending(env, id, pending);
@@ -51,11 +53,15 @@ export async function approveSubmission(
     });
     wroteApprovedR2 = true;
 
-    await appendToCatalog(env.TPAAS_KV, {
-      id,
-      ext: pending.ext,
-      attribution: pending.attribution,
-    });
+    await appendToCatalog(
+      env.TPAAS_KV,
+      {
+        id,
+        ext: pending.ext,
+        attribution: pending.attribution,
+      },
+      { cacheOrigin },
+    );
     wroteCatalog = true;
 
     await putDedup(env.TPAAS_KV, pending.contentHash, "approved", id);
@@ -69,12 +75,21 @@ export async function approveSubmission(
   } catch (err) {
     console.error(JSON.stringify({ event: "approve_failed", id, err: String(err) }));
     const rollback: Promise<unknown>[] = [];
-    if (wroteCatalog) rollback.push(env.TPAAS_KV.delete(entryKey));
+    if (wroteCatalog) {
+      rollback.push(removeCatalogEntry(env.TPAAS_KV, id, pending.ext, { cacheOrigin }));
+    }
     if (wroteApprovedR2) rollback.push(env.TPAAS_R2.delete(destKey));
     if (promotedDedup) {
       rollback.push(putDedup(env.TPAAS_KV, pending.contentHash, "pending", id));
     }
-    await Promise.all(rollback).catch(() => {});
+    const results = await Promise.allSettled(rollback);
+    for (const result of results) {
+      if (result.status === "rejected") {
+        console.error(
+          JSON.stringify({ event: "approve_rollback_failed", id, err: String(result.reason) }),
+        );
+      }
+    }
     return { ok: false, error: "Approval failed" };
   }
 }

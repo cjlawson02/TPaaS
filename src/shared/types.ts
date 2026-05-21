@@ -38,6 +38,9 @@ export interface PendingRecord {
 export const PENDING_PREFIX = "pending:";
 export const CATALOG_ENTRY_PREFIX = "cat:";
 export const CATALOG_VERSION_KEY = "cat:version";
+/** Denormalized full catalog — one KV read instead of list + N gets. */
+export const CATALOG_MANIFEST_KEY = "cat:manifest";
 
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export const CATALOG_CACHE_TTL_MS = 60_000;
+export const CATALOG_CACHE_SECONDS = CATALOG_CACHE_TTL_MS / 1000;

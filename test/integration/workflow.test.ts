@@ -9,6 +9,7 @@ import { readCatalog } from "../../src/shared/catalog";
 import { getDedup } from "../../src/shared/dedup";
 import { sha256Hex } from "../../src/shared/hash";
 import { approvedKey, pendingKey } from "../../src/shared/r2-keys";
+import { CATALOG_MANIFEST_KEY } from "../../src/shared/types";
 import { approveSubmission } from "../../src/submit/approve";
 import { MINIMAL_PNG, uniqueJpeg } from "../fixtures/minimal-images";
 import type { TestEnv } from "./env";
@@ -39,6 +40,9 @@ describe("submit → approve → serve", () => {
 
     const catalog = await readCatalog(testEnv.TPAAS_KV);
     expect(catalog.entries).toContainEqual({ id, ext: "jpg" });
+
+    const manifestRaw = await testEnv.TPAAS_KV.get(CATALOG_MANIFEST_KEY);
+    expect(manifestRaw).toContain(id);
 
     const hash = await sha256Hex(image);
     expect(await getDedup(testEnv.TPAAS_KV, hash)).toEqual({ status: "approved", id });

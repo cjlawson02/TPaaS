@@ -95,8 +95,8 @@ curl -s https://tpaas.chrislawson.dev/health
 
 ## Architecture notes
 
-- **Catalog** is KV-only: one key per approved meme (`cat:{uuid}.{ext}`). Values may hold optional JSON attribution; empty string means none. Approves write entry then version sequentially.
+- **Catalog** is KV-only: denormalized manifest at `cat:manifest` (one read for the full catalog) plus per-entry keys `cat:{uuid}.{ext}` for idempotency. Legacy deployments auto-migrate from list+get on first read. Approves update manifest, entry key, and version together.
 - **Pending images** live in private bucket `tpaas-pending`. **Approved images** live in `tpaas-assets` under `approved/`.
 - **Dedup** uses claim-then-verify before upload. Stale pending dedup (orphaned after partial failure) is cleared on resubmit.
-- **API cache** re-reads `cat:version` without edge cache TTL on every in-isolate cache hit.
+- **API cache** uses in-isolate catalog memory (60s TTL, zero KV reads while warm) plus Workers Cache API for `/catalog.json` and gallery HTML (checked before KV). Approvals purge both caches so new entries appear immediately.
 - **Discord approve** is idempotent; re-clicks discard orphaned pending state but preserve approved dedup.

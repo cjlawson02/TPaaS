@@ -1,4 +1,5 @@
 import { approvedUrl } from "../shared/r2-keys";
+import { CATALOG_CACHE_SECONDS } from "../shared/types";
 import type { Attribution, Catalog } from "../shared/types";
 
 function attributionCaption(attribution: Attribution): string {
@@ -107,7 +108,7 @@ export function galleryPage(catalog: Catalog, assetsBaseUrl: string): Response {
   return new Response(html, {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
-      "Cache-Control": "public, max-age=60",
+      "Cache-Control": `public, max-age=${CATALOG_CACHE_SECONDS}`,
     },
   });
 }

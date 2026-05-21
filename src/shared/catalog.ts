@@ -4,6 +4,7 @@ import {
 } from "./attribution";
 import {
   CATALOG_ENTRY_PREFIX,
+  CATALOG_MANIFEST_KEY,
   CATALOG_VERSION_KEY,
   PENDING_PREFIX,
   type Catalog,
@@ -13,6 +14,7 @@ import {
 } from "./types";
 
 const CATALOG_READ_BATCH = 64;
+const MANIFEST_SYNC_RETRIES = 2;
 
 export function catalogEntryKey(id: string, ext: ImageExt): string {
   return `${CATALOG_ENTRY_PREFIX}${id}.${ext}`;
@@ -41,6 +43,42 @@ function parseCatalogEntryValue(raw: string | null): Pick<CatalogEntry, "attribu
   }
 }
 
+function parseCatalogEntryJson(value: unknown): CatalogEntry | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const id = typeof record.id === "string" ? record.id : "";
+  const ext = record.ext;
+  if (!id || (ext !== "jpg" && ext !== "png")) return null;
+  const attribution = parseAttributionJson(record.attribution);
+  return attribution ? { id, ext, attribution } : { id, ext };
+}
+
+function parseCatalogManifest(raw: string): Catalog | null {
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object") return null;
+    const record = parsed as Record<string, unknown>;
+    const version = Number(record.version);
+    if (!Number.isFinite(version)) return null;
+    if (!Array.isArray(record.entries)) return null;
+
+    const entries: CatalogEntry[] = [];
+    for (const item of record.entries) {
+      const entry = parseCatalogEntryJson(item);
+      if (entry) entries.push(entry);
+    }
+    if (record.entries.length > 0 && entries.length === 0) return null;
+
+    return { version, entries };
+  } catch {
+    return null;
+  }
+}
+
+function serializeCatalogManifest(catalog: Catalog): string {
+  return JSON.stringify(catalog);
+}
+
 async function readCatalogEntryValues(
   kv: KVNamespace,
   keys: string[],
@@ -48,15 +86,16 @@ async function readCatalogEntryValues(
   const values = new Map<string, Pick<CatalogEntry, "attribution">>();
   for (let i = 0; i < keys.length; i += CATALOG_READ_BATCH) {
     const batch = keys.slice(i, i + CATALOG_READ_BATCH);
-    const results = await Promise.all(batch.map((key) => kv.get(key)));
-    for (let j = 0; j < batch.length; j++) {
-      values.set(batch[j]!, parseCatalogEntryValue(results[j] ?? null));
+    const results = await kv.get(batch);
+    for (const key of batch) {
+      values.set(key, parseCatalogEntryValue(results.get(key) ?? null));
     }
   }
   return values;
 }
 
-export async function readCatalog(kv: KVNamespace): Promise<Catalog> {
+/** Rebuild manifest from per-entry keys — authoritative source for catalog mutations. */
+async function listCatalogFromEntryKeys(kv: KVNamespace): Promise<Catalog> {
   const versionRaw = await kv.get(CATALOG_VERSION_KEY);
   const version = versionRaw ? Number(versionRaw) : 0;
 
@@ -84,16 +123,81 @@ export async function readCatalog(kv: KVNamespace): Promise<Catalog> {
   return { version, entries };
 }
 
-/** Idempotent: one KV key per approved meme — no read-modify-write race. */
+/** Sync manifest from entry keys after a mutation. Retries once if an expected entry is missing. */
+async function syncManifestFromEntryKeys(
+  kv: KVNamespace,
+  expectId?: string,
+): Promise<Catalog> {
+  for (let attempt = 0; attempt < MANIFEST_SYNC_RETRIES; attempt++) {
+    const listed = await listCatalogFromEntryKeys(kv);
+    const catalog: Catalog = { version: Date.now(), entries: listed.entries };
+    await Promise.all([
+      kv.put(CATALOG_MANIFEST_KEY, serializeCatalogManifest(catalog)),
+      kv.put(CATALOG_VERSION_KEY, String(catalog.version)),
+    ]);
+    if (!expectId || catalog.entries.some((entry) => entry.id === expectId)) {
+      return catalog;
+    }
+  }
+
+  const catalog: Catalog = {
+    version: Date.now(),
+    entries: (await listCatalogFromEntryKeys(kv)).entries,
+  };
+  await Promise.all([
+    kv.put(CATALOG_MANIFEST_KEY, serializeCatalogManifest(catalog)),
+    kv.put(CATALOG_VERSION_KEY, String(catalog.version)),
+  ]);
+  return catalog;
+}
+
+export async function readCatalog(kv: KVNamespace): Promise<Catalog> {
+  const manifestRaw = await kv.get(CATALOG_MANIFEST_KEY);
+  if (manifestRaw) {
+    const catalog = parseCatalogManifest(manifestRaw);
+    if (catalog) return catalog;
+  }
+
+  const catalog = await syncManifestFromEntryKeys(kv);
+  return catalog;
+}
+
+export interface CatalogMutationOptions {
+  /** Worker origin (e.g. https://tpaas.example.com) — purges edge + in-isolate caches after write. */
+  cacheOrigin?: string;
+}
+
+/** Writes the entry key then rebuilds the manifest from all entry keys (no in-memory RMW race). */
 export async function appendToCatalog(
   kv: KVNamespace,
   entry: CatalogEntry,
+  options?: CatalogMutationOptions,
 ): Promise<void> {
   await kv.put(
     catalogEntryKey(entry.id, entry.ext),
     serializeCatalogEntryValue(entry.attribution),
   );
-  await kv.put(CATALOG_VERSION_KEY, String(Date.now()));
+  await syncManifestFromEntryKeys(kv, entry.id);
+
+  if (options?.cacheOrigin) {
+    const { purgeCatalogCaches } = await import("../api/catalog-cache");
+    await purgeCatalogCaches(options.cacheOrigin);
+  }
+}
+
+export async function removeCatalogEntry(
+  kv: KVNamespace,
+  id: string,
+  ext: ImageExt,
+  options?: CatalogMutationOptions,
+): Promise<void> {
+  await kv.delete(catalogEntryKey(id, ext));
+  await syncManifestFromEntryKeys(kv);
+
+  if (options?.cacheOrigin) {
+    const { purgeCatalogCaches } = await import("../api/catalog-cache");
+    await purgeCatalogCaches(options.cacheOrigin);
+  }
 }
 
 export async function getPending(

@@ -1,8 +1,14 @@
+import { findInCatalog, readCatalog } from "../shared/catalog";
 import { contentTypeForExt } from "../shared/image-validation";
 import { clientKey, rateLimited } from "../shared/rate-limit";
 import { approvedKey, approvedUrl } from "../shared/r2-keys";
 import type { ImageExt } from "../shared/types";
-import { findCachedEntry, getCatalog, pickRandom } from "./catalog-cache";
+import { getCatalog, pickRandom } from "./catalog-cache";
+import {
+  cacheCatalogResponse,
+  catalogCacheKey,
+  catalogJsonResponse,
+} from "./edge-cache";
 import { galleryPage } from "./gallery";
 
 const UUID_PATH = /^\/([0-9a-f-]{36})$/i;
@@ -10,7 +16,7 @@ const UUID_PATH = /^\/([0-9a-f-]{36})$/i;
 export async function handleApiRequest(
   request: Request,
   env: TpaasEnv,
-  _ctx: ExecutionContext,
+  ctx: ExecutionContext,
 ): Promise<Response> {
     const url = new URL(request.url);
 
@@ -25,29 +31,25 @@ export async function handleApiRequest(
     }
 
     if (url.pathname === "/catalog.json") {
+      const cacheKey = catalogCacheKey(url.origin, "/catalog.json");
+      const cached = await caches.default.match(cacheKey);
+      if (cached) return cached;
+
       const catalog = await getCatalog(env.TPAAS_KV);
-      return Response.json(
-        {
-          count: catalog.entries.length,
-          entries: catalog.entries.map((entry) => ({
-            id: entry.id,
-            ext: entry.ext,
-            url: approvedUrl(env.ASSETS_BASE_URL, entry.id, entry.ext),
-            attribution: entry.attribution ?? null,
-          })),
-        },
-        {
-          headers: {
-            "Access-Control-Allow-Origin": "*",
-            "Cache-Control": "public, max-age=60",
-          },
-        },
-      );
+      const response = catalogJsonResponse(catalog, env.ASSETS_BASE_URL);
+      cacheCatalogResponse(ctx, cacheKey, response);
+      return response;
     }
 
     if (url.pathname === "/" || url.pathname === "/gallery") {
+      const cacheKey = catalogCacheKey(url.origin, url.pathname);
+      const cached = await caches.default.match(cacheKey);
+      if (cached) return cached;
+
       const catalog = await getCatalog(env.TPAAS_KV);
-      return galleryPage(catalog, env.ASSETS_BASE_URL);
+      const response = galleryPage(catalog, env.ASSETS_BASE_URL);
+      cacheCatalogResponse(ctx, cacheKey, response);
+      return response;
     }
 
     if (url.pathname === "/random") {
@@ -63,7 +65,10 @@ export async function handleApiRequest(
     if (idMatch) {
       const id = idMatch[1]!.toLowerCase();
       const catalog = await getCatalog(env.TPAAS_KV);
-      const entry = findCachedEntry(id) ?? catalog.entries.find((e) => e.id === id);
+      let entry = findInCatalog(catalog, id);
+      if (!entry) {
+        entry = findInCatalog(await readCatalog(env.TPAAS_KV), id);
+      }
       if (!entry) {
         return new Response("Not Found", { status: 404 });
       }
