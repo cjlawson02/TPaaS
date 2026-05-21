@@ -38,6 +38,7 @@ export interface PendingRecord {
 export const PENDING_PREFIX = "pending:";
 export const CATALOG_ENTRY_PREFIX = "cat:";
 export const CATALOG_VERSION_KEY = "cat:version";
+export const CATALOG_SNAPSHOT_KEY = "cat:snapshot";
 
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export const CATALOG_CACHE_TTL_MS = 60_000;

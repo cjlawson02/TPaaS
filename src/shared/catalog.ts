@@ -4,6 +4,7 @@ import {
 } from "./attribution";
 import {
   CATALOG_ENTRY_PREFIX,
+  CATALOG_SNAPSHOT_KEY,
   CATALOG_VERSION_KEY,
   PENDING_PREFIX,
   type Catalog,
@@ -94,6 +95,7 @@ export async function appendToCatalog(
     serializeCatalogEntryValue(entry.attribution),
   );
   await kv.put(CATALOG_VERSION_KEY, String(Date.now()));
+  await kv.delete(CATALOG_SNAPSHOT_KEY);
 }
 
 export async function getPending(

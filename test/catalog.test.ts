@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  appendToCatalog,
   catalogEntryKey,
   parseCatalogEntryKey,
   readCatalog,
 } from "../src/shared/catalog";
+import { CATALOG_SNAPSHOT_KEY } from "../src/shared/types";
 
 describe("catalogEntryKey", () => {
   it("encodes id and ext in the key", () => {
@@ -82,5 +84,28 @@ describe("readCatalog", () => {
         sourceUrl: "https://example.com/post",
       },
     });
+  });
+});
+
+describe("appendToCatalog", () => {
+  it("writes entry, bumps version, and invalidates snapshot", async () => {
+    const put = vi.fn(async () => {});
+    const del = vi.fn(async () => {});
+    const kv = {
+      put,
+      delete: del,
+    } as unknown as KVNamespace;
+
+    await appendToCatalog(kv, {
+      id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      ext: "jpg",
+    });
+
+    expect(put.mock.calls[0]).toEqual([
+      "cat:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jpg",
+      "",
+    ]);
+    expect(put.mock.calls[1]?.[0]).toBe("cat:version");
+    expect(del.mock.calls).toEqual([[CATALOG_SNAPSHOT_KEY]]);
   });
 });

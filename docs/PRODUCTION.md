@@ -98,5 +98,5 @@ curl -s https://tpaas.chrislawson.dev/health
 - **Catalog** is KV-only: one key per approved meme (`cat:{uuid}.{ext}`). Values may hold optional JSON attribution; empty string means none. Approves write entry then version sequentially.
 - **Pending images** live in private bucket `tpaas-pending`. **Approved images** live in `tpaas-assets` under `approved/`.
 - **Dedup** uses claim-then-verify before upload. Stale pending dedup (orphaned after partial failure) is cleared on resubmit.
-- **API cache** re-reads `cat:version` without edge cache TTL on every in-isolate cache hit.
+- **API cache** uses two levels: in-isolate memory and a KV snapshot (`cat:snapshot`) validated against `cat:version`.
 - **Discord approve** is idempotent; re-clicks discard orphaned pending state but preserve approved dedup.
