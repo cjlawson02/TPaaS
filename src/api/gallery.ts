@@ -1,5 +1,22 @@
 import { approvedUrl } from "../shared/r2-keys";
-import type { Catalog } from "../shared/types";
+import type { Attribution, Catalog } from "../shared/types";
+
+function attributionCaption(attribution: Attribution): string {
+  const label = escapeHtml(attribution.label);
+  if (attribution.sourceUrl) {
+    const href = escapeHtml(attribution.sourceUrl);
+    return `<figcaption class="credit"><a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a></figcaption>`;
+  }
+  return `<figcaption class="credit">${label}</figcaption>`;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
 
 export function galleryPage(catalog: Catalog, assetsBaseUrl: string): Response {
   const body =
@@ -8,9 +25,13 @@ export function galleryPage(catalog: Catalog, assetsBaseUrl: string): Response {
       : `<div class="grid">${catalog.entries
           .map((entry) => {
             const url = approvedUrl(assetsBaseUrl, entry.id, entry.ext);
-            return `<a class="tile" href="${url}" target="_blank" rel="noopener">
-                <img src="${url}" alt="" loading="lazy" width="200" height="200">
-              </a>`;
+            const credit = entry.attribution ? attributionCaption(entry.attribution) : "";
+            return `<figure class="tile">
+                <a href="${url}" target="_blank" rel="noopener">
+                  <img src="${url}" alt="" loading="lazy" width="200" height="200">
+                </a>
+                ${credit}
+              </figure>`;
           })
           .join("\n")}</div>`;
 
@@ -44,12 +65,32 @@ export function galleryPage(catalog: Catalog, assetsBaseUrl: string): Response {
       overflow: hidden;
       border: 1px solid #2e2e38;
       background: #1a1a20;
+      margin: 0;
+    }
+    .tile a {
+      display: block;
     }
     .tile img {
       width: 100%;
       aspect-ratio: 1;
       object-fit: cover;
       display: block;
+    }
+    .credit {
+      margin: 0;
+      padding: 0.35rem 0.5rem;
+      font-size: 0.6875rem;
+      color: #9a9690;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .credit a {
+      color: #d4a72c;
+      text-decoration: none;
+    }
+    .credit a:hover {
+      text-decoration: underline;
     }
     .empty { color: #9a9690; margin: 0; }
   </style>

@@ -38,7 +38,7 @@ export const SUBMIT_PAGE_HTML = `<!DOCTYPE html>
       margin-bottom: 0.5rem;
       color: #c4c0b8;
     }
-    input[type="file"] {
+    input[type="file"], input[type="text"], input[type="url"], select {
       width: 100%;
       padding: 0.75rem;
       background: #1a1a20;
@@ -46,6 +46,19 @@ export const SUBMIT_PAGE_HTML = `<!DOCTYPE html>
       border-radius: 8px;
       color: inherit;
       font-size: 0.875rem;
+    }
+    details {
+      margin-top: 1rem;
+      font-size: 0.8125rem;
+      color: #9a9690;
+    }
+    details summary {
+      cursor: pointer;
+      color: #c4c0b8;
+      margin-bottom: 0.75rem;
+    }
+    .field {
+      margin-bottom: 0.75rem;
     }
     button {
       margin-top: 1rem;
@@ -77,6 +90,26 @@ export const SUBMIT_PAGE_HTML = `<!DOCTYPE html>
     <form id="form">
       <label for="image">Image</label>
       <input id="image" name="image" type="file" accept="image/jpeg,image/png" required>
+      <details>
+        <summary>Optional attribution</summary>
+        <div class="field">
+          <label for="attribution_label">Credit label</label>
+          <input id="attribution_label" name="attribution_label" type="text" maxlength="120" placeholder="e.g. u/username">
+        </div>
+        <div class="field">
+          <label for="attribution_source_url">Source URL</label>
+          <input id="attribution_source_url" name="attribution_source_url" type="url" placeholder="https://…">
+        </div>
+        <div class="field">
+          <label for="attribution_kind">Type</label>
+          <select id="attribution_kind" name="attribution_kind">
+            <option value="">—</option>
+            <option value="poster">Poster</option>
+            <option value="uploader">Uploader</option>
+            <option value="collection">Collection</option>
+          </select>
+        </div>
+      </details>
       <button type="submit" id="btn">Submit</button>
     </form>
     <p id="status" role="status"></p>

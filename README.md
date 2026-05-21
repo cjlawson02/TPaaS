@@ -92,7 +92,7 @@ Returns `202 { "id": "...", "status": "pending" }`. Duplicate byte-identical ima
 |--------|------|-------------|
 | GET | `/` | HTML grid of all approved memes |
 | GET | `/gallery` | Alias for `/` |
-| GET | `/random` | 302 to random approved meme |
+| GET | `/random` | Random approved meme (URL stays `/random`) |
 | GET | `/{uuid}` | 302 to specific approved meme |
 | GET | `/request` | HTML upload page |
 | POST | `/submit` | `multipart/form-data` field `image` (JPEG/PNG, max 5MB) → `202`, or `409` if duplicate |

@@ -29,7 +29,7 @@ async function submitImage(bytes: Uint8Array, type: string, name: string): Promi
 }
 
 describe("submit → approve → serve", () => {
-  it("uploads via HTTP, approves into catalog, and redirects from /random", async () => {
+  it("uploads via HTTP, approves into catalog, and serves from /random", async () => {
     const image = uniqueJpeg(1);
     const submitRes = await submitImage(image, "image/jpeg", "meme.jpg");
     expect(submitRes.status).toBe(202);
@@ -50,9 +50,10 @@ describe("submit → approve → serve", () => {
       apiCtx,
     );
     await waitOnExecutionContext(apiCtx);
-    expect(randomRes.status).toBe(302);
-    expect(randomRes.headers.get("Location")).toBe(`${testEnv.ASSETS_BASE_URL}/approved/${id}.jpg`);
+    expect(randomRes.status).toBe(200);
+    expect(randomRes.headers.get("Content-Type")).toBe("image/jpeg");
     expect(randomRes.headers.get("Cache-Control")).toBe("no-store");
+    expect(new Uint8Array(await randomRes.arrayBuffer())).toEqual(image);
 
     expect(await testEnv.TPAAS_R2.get(approvedKey(id, "jpg"))).not.toBeNull();
     expect(await testEnv.TPAAS_PENDING_R2.get(pendingKey(id, "jpg"))).toBeNull();

@@ -25,7 +25,10 @@ export async function handleDiscordInteraction(
   const interaction = auth.interaction;
 
   if (interaction.type !== InteractionType.MESSAGE_COMPONENT) {
-    return new Response("Forbidden", { status: 403 });
+    return jsonResponse({
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: { content: "Unsupported interaction type", flags: 64 },
+    });
   }
 
   const authzError = authorizeReviewInteraction(interaction, env);

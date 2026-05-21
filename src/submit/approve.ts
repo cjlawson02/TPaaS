@@ -51,7 +51,11 @@ export async function approveSubmission(
     });
     wroteApprovedR2 = true;
 
-    await appendToCatalog(env.TPAAS_KV, { id, ext: pending.ext });
+    await appendToCatalog(env.TPAAS_KV, {
+      id,
+      ext: pending.ext,
+      attribution: pending.attribution,
+    });
     wroteCatalog = true;
 
     await putDedup(env.TPAAS_KV, pending.contentHash, "approved", id);

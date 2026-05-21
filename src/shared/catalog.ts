@@ -1,4 +1,8 @@
 import {
+  parseAttributionJson,
+  serializeCatalogEntryValue,
+} from "./attribution";
+import {
   CATALOG_ENTRY_PREFIX,
   CATALOG_VERSION_KEY,
   PENDING_PREFIX,
@@ -7,6 +11,8 @@ import {
   type ImageExt,
   type PendingRecord,
 } from "./types";
+
+const CATALOG_READ_BATCH = 64;
 
 export function catalogEntryKey(id: string, ext: ImageExt): string {
   return `${CATALOG_ENTRY_PREFIX}${id}.${ext}`;
@@ -23,20 +29,57 @@ export function parseCatalogEntryKey(key: string): CatalogEntry | null {
   return { id, ext };
 }
 
+function parseCatalogEntryValue(raw: string | null): Pick<CatalogEntry, "attribution"> {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object") return {};
+    const attribution = parseAttributionJson((parsed as { attribution?: unknown }).attribution);
+    return attribution ? { attribution } : {};
+  } catch {
+    return {};
+  }
+}
+
+async function readCatalogEntryValues(
+  kv: KVNamespace,
+  keys: string[],
+): Promise<Map<string, Pick<CatalogEntry, "attribution">>> {
+  const values = new Map<string, Pick<CatalogEntry, "attribution">>();
+  for (let i = 0; i < keys.length; i += CATALOG_READ_BATCH) {
+    const batch = keys.slice(i, i + CATALOG_READ_BATCH);
+    const results = await Promise.all(batch.map((key) => kv.get(key)));
+    for (let j = 0; j < batch.length; j++) {
+      values.set(batch[j]!, parseCatalogEntryValue(results[j] ?? null));
+    }
+  }
+  return values;
+}
+
 export async function readCatalog(kv: KVNamespace): Promise<Catalog> {
   const versionRaw = await kv.get(CATALOG_VERSION_KEY);
   const version = versionRaw ? Number(versionRaw) : 0;
 
-  const entries: CatalogEntry[] = [];
+  const keyEntries: Array<{ key: string; entry: CatalogEntry }> = [];
   let cursor: string | undefined;
   do {
     const page = await kv.list({ prefix: CATALOG_ENTRY_PREFIX, cursor });
     for (const { name } of page.keys) {
       const entry = parseCatalogEntryKey(name);
-      if (entry) entries.push(entry);
+      if (entry) keyEntries.push({ key: name, entry });
     }
     cursor = page.list_complete ? undefined : page.cursor;
   } while (cursor);
+
+  const values = await readCatalogEntryValues(
+    kv,
+    keyEntries.map(({ key }) => key),
+  );
+
+  const entries = keyEntries.map(({ key, entry }) => ({
+    ...entry,
+    ...values.get(key),
+  }));
 
   return { version, entries };
 }
@@ -46,7 +89,10 @@ export async function appendToCatalog(
   kv: KVNamespace,
   entry: CatalogEntry,
 ): Promise<void> {
-  await kv.put(catalogEntryKey(entry.id, entry.ext), "");
+  await kv.put(
+    catalogEntryKey(entry.id, entry.ext),
+    serializeCatalogEntryValue(entry.attribution),
+  );
   await kv.put(CATALOG_VERSION_KEY, String(Date.now()));
 }
 

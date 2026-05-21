@@ -33,7 +33,11 @@ describe("parseCatalogEntryKey", () => {
 describe("readCatalog", () => {
   it("lists catalog entry keys and reads version", async () => {
     const kv = {
-      get: vi.fn(async (key: string) => (key === "cat:version" ? "42" : null)),
+      get: vi.fn(async (key: string) => {
+        if (key === "cat:version") return "42";
+        if (key === "cat:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jpg") return "";
+        return null;
+      }),
       list: vi.fn(async () => ({
         keys: [{ name: "cat:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jpg" }],
         list_complete: true,
@@ -45,5 +49,38 @@ describe("readCatalog", () => {
     expect(catalog.entries).toEqual([
       { id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", ext: "jpg" },
     ]);
+  });
+
+  it("loads optional attribution from entry values", async () => {
+    const kv = {
+      get: vi.fn(async (key: string) => {
+        if (key === "cat:version") return "99";
+        if (key === "cat:bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb.png") {
+          return JSON.stringify({
+            attribution: {
+              label: "tester",
+              kind: "poster",
+              sourceUrl: "https://example.com/post",
+            },
+          });
+        }
+        return null;
+      }),
+      list: vi.fn(async () => ({
+        keys: [{ name: "cat:bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb.png" }],
+        list_complete: true,
+      })),
+    } as unknown as KVNamespace;
+
+    const catalog = await readCatalog(kv);
+    expect(catalog.entries[0]).toEqual({
+      id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      ext: "png",
+      attribution: {
+        label: "tester",
+        kind: "poster",
+        sourceUrl: "https://example.com/post",
+      },
+    });
   });
 });

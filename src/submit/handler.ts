@@ -1,4 +1,5 @@
 import { putPending } from "../shared/catalog";
+import { parseAttributionForm } from "../shared/attribution";
 import {
   claimDedup,
   clearStalePendingDedup,
@@ -84,6 +85,7 @@ export async function handleSubmit(
   }
 
   const id = newId();
+  const attribution = parseAttributionForm(form);
   const lostRace = await claimDedup(env.TPAAS_KV, contentHash, id);
   if (lostRace) {
     return {
@@ -106,6 +108,7 @@ export async function handleSubmit(
       r2Key: key,
       submittedAt: new Date().toISOString(),
       contentHash,
+      ...(attribution ? { attribution } : {}),
     });
   } catch (err) {
     console.error(JSON.stringify({ event: "submit_failed", id, err: String(err) }));

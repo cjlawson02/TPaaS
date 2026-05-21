@@ -1,8 +1,18 @@
 export type ImageExt = "jpg" | "png";
 
+export type AttributionKind = "poster" | "uploader" | "collection";
+
+/** Optional credit for a meme — poster/uploader, not necessarily the original artist. */
+export interface Attribution {
+  label: string;
+  kind: AttributionKind;
+  sourceUrl?: string;
+}
+
 export interface CatalogEntry {
   id: string;
   ext: ImageExt;
+  attribution?: Attribution;
 }
 
 export interface Catalog {
@@ -22,6 +32,7 @@ export interface PendingRecord {
   r2Key: string;
   submittedAt: string;
   contentHash: string;
+  attribution?: Attribution;
 }
 
 export const PENDING_PREFIX = "pending:";

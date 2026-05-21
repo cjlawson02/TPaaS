@@ -60,6 +60,33 @@ curl -X POST https://tpaas.chrislawson.dev/submit -F "image=@meme.jpg"
 
 Approve in Discord → https://tpaas.chrislawson.dev/random
 
+## Seed import corpus
+
+After deploying attribution support:
+
+```bash
+npm run import:metadata   # builds data/import/metadata.jsonl (~10 min)
+npm run import:export     # builds data/seed/ for dashboard upload
+```
+
+### Dashboard upload (recommended)
+
+1. **R2** — bucket `tpaas-assets` → upload `data/seed/approved/*` under prefix **`approved/`**
+2. **KV** — namespace `TPAAS_KV` → bulk import `data/seed/kv-bulk.json`
+
+See `data/seed/README.txt` after export.
+
+### Wrangler CLI (alternative)
+
+Must pass `--remote` or wrangler writes to local dev storage only:
+
+```bash
+npm run import:seed -- --dry-run
+npm run import:seed
+```
+
+The seed script adds `--remote` automatically. Seeding skips content already in KV dedup index.
+
 ## Verify
 
 ```bash
@@ -68,7 +95,7 @@ curl -s https://tpaas.chrislawson.dev/health
 
 ## Architecture notes
 
-- **Catalog** is KV-only: one key per approved meme (`cat:{uuid}.{ext}`). Approves write entry then version sequentially.
+- **Catalog** is KV-only: one key per approved meme (`cat:{uuid}.{ext}`). Values may hold optional JSON attribution; empty string means none. Approves write entry then version sequentially.
 - **Pending images** live in private bucket `tpaas-pending`. **Approved images** live in `tpaas-assets` under `approved/`.
 - **Dedup** uses claim-then-verify before upload. Stale pending dedup (orphaned after partial failure) is cleared on resubmit.
 - **API cache** re-reads `cat:version` without edge cache TTL on every in-isolate cache hit.
