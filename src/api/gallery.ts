@@ -1,6 +1,7 @@
 import { approvedUrl } from "../shared/r2-keys";
 import { CATALOG_CACHE_SECONDS } from "../shared/types";
 import type { Attribution, Catalog } from "../shared/types";
+import { escapeHtml } from "../shared/html";
 import { galleryEmbedMeta } from "./embed-meta";
 
 function attributionCaption(attribution: Attribution): string {
@@ -12,14 +13,6 @@ function attributionCaption(attribution: Attribution): string {
   return `<figcaption class="credit">${label}</figcaption>`;
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
-
 export function galleryPage(
   catalog: Catalog,
   assetsBaseUrl: string,
@@ -29,7 +22,12 @@ export function galleryPage(
   const previewImageUrl = previewEntry
     ? approvedUrl(assetsBaseUrl, previewEntry.id, previewEntry.ext)
     : undefined;
-  const embedMeta = galleryEmbedMeta(catalog.entries.length, pageUrl, previewImageUrl);
+  const embedMeta = galleryEmbedMeta(
+    catalog.entries.length,
+    pageUrl,
+    previewImageUrl,
+    previewEntry?.ext,
+  );
 
   const body =
     catalog.entries.length === 0

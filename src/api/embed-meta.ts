@@ -1,12 +1,18 @@
+import { contentTypeForExt } from "../shared/image-validation";
+import { escapeAttr, escapeHtml } from "../shared/html";
 import { approvedUrl } from "../shared/r2-keys";
-import type { CatalogEntry } from "../shared/types";
+import type { CatalogEntry, ImageExt } from "../shared/types";
 
 const EMBED_CRAWLER =
-  /discordbot|slackbot|facebookexternalhit|twitterbot|linkedinbot|embedly|whatsapp|telegrambot/i;
+  /discordbot|slackbot|skypeuripreview|msteams|facebookexternalhit|twitterbot|linkedinbot|embedly|whatsapp|telegrambot|iframely/i;
 
 export function isEmbedCrawler(request: Request): boolean {
   const ua = request.headers.get("User-Agent") ?? "";
   return EMBED_CRAWLER.test(ua);
+}
+
+export function canonicalPageUrl(url: URL): string {
+  return `${url.origin}${url.pathname}`;
 }
 
 export interface EmbedMeta {
@@ -14,19 +20,8 @@ export interface EmbedMeta {
   description: string;
   pageUrl: string;
   imageUrl?: string;
+  imageMimeType?: string;
   siteName?: string;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
-
-function escapeAttr(value: string): string {
-  return escapeHtml(value);
 }
 
 export function embedMetaTags(meta: EmbedMeta): string {
@@ -46,6 +41,16 @@ export function embedMetaTags(meta: EmbedMeta): string {
   if (meta.imageUrl) {
     tags.push(`<meta property="og:image" content="${escapeAttr(meta.imageUrl)}">`);
     tags.push(`<meta name="twitter:image" content="${escapeAttr(meta.imageUrl)}">`);
+    if (meta.imageUrl.startsWith("https://")) {
+      tags.push(
+        `<meta property="og:image:secure_url" content="${escapeAttr(meta.imageUrl)}">`,
+      );
+    }
+    if (meta.imageMimeType) {
+      tags.push(
+        `<meta property="og:image:type" content="${escapeAttr(meta.imageMimeType)}">`,
+      );
+    }
   }
 
   return tags.join("\n  ");
@@ -62,12 +67,17 @@ export function memeEmbedResponse(
   entry: CatalogEntry,
   pageUrl: string,
   assetsBaseUrl: string,
-  cacheControl: string,
 ): Response {
   const imageUrl = approvedUrl(assetsBaseUrl, entry.id, entry.ext);
   const title = "Trolley Problem — TPaaS";
   const description = memeDescription(entry);
-  const meta: EmbedMeta = { title, description, pageUrl, imageUrl };
+  const meta: EmbedMeta = {
+    title,
+    description,
+    pageUrl,
+    imageUrl,
+    imageMimeType: contentTypeForExt(entry.ext),
+  };
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -110,7 +120,7 @@ export function memeEmbedResponse(
   return new Response(html, {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
-      "Cache-Control": cacheControl,
+      "Cache-Control": "no-store",
     },
   });
 }
@@ -119,6 +129,7 @@ export function galleryEmbedMeta(
   entryCount: number,
   pageUrl: string,
   previewImageUrl?: string,
+  previewExt?: ImageExt,
 ): string {
   const title = "TPaaS Gallery";
   const description =
@@ -131,5 +142,6 @@ export function galleryEmbedMeta(
     description,
     pageUrl,
     imageUrl: previewImageUrl,
+    imageMimeType: previewExt ? contentTypeForExt(previewExt) : undefined,
   });
 }
