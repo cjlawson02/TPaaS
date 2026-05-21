@@ -2,17 +2,17 @@ import { approvedUrl } from "../shared/r2-keys";
 import type { Catalog } from "../shared/types";
 
 export function galleryPage(catalog: Catalog, assetsBaseUrl: string): Response {
-  const tiles =
+  const body =
     catalog.entries.length === 0
       ? '<p class="empty">No approved trolley problems yet.</p>'
-      : catalog.entries
+      : `<div class="grid">${catalog.entries
           .map((entry) => {
             const url = approvedUrl(assetsBaseUrl, entry.id, entry.ext);
             return `<a class="tile" href="${url}" target="_blank" rel="noopener">
                 <img src="${url}" alt="" loading="lazy" width="200" height="200">
               </a>`;
           })
-          .join("\n");
+          .join("\n")}</div>`;
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -51,7 +51,7 @@ export function galleryPage(catalog: Catalog, assetsBaseUrl: string): Response {
       object-fit: cover;
       display: block;
     }
-    .empty { color: #9a9690; }
+    .empty { color: #9a9690; margin: 0; }
   </style>
 </head>
 <body>
@@ -59,7 +59,7 @@ export function galleryPage(catalog: Catalog, assetsBaseUrl: string): Response {
     <h1>TPaaS Gallery</h1>
     <p class="meta">${catalog.entries.length} approved · <a href="/random">random</a> · <a href="/request">submit</a></p>
   </header>
-  <div class="grid">${tiles}</div>
+  ${body}
 </body>
 </html>`;
 
