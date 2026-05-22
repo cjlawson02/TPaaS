@@ -71,6 +71,15 @@ web_modules/
 !.env.example
 .dev.vars
 
+# Local meme corpus + import pipeline artifacts
+data/import/
+data/seed/
+data/classify/
+
+# Python
+__pycache__/
+*.py[cod]
+
 # Wrangler local dev / build output
 .wrangler/
 

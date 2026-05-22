@@ -78,5 +78,12 @@ jobs:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           DISCORD_REVIEW_USER_IDS: ${{ secrets.DISCORD_REVIEW_USER_IDS }}
 
+      - name: Apply R2 assets CORS
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: r2 bucket cors set tpaas-assets --file r2-cors/tpaas-assets.json -y
+
       - name: Smoke test health
         run: curl -fsS https://tpaas.chrislawson.dev/health

@@ -15,7 +15,8 @@
     "test": "vitest run",
     "test:integration": "vitest run --project integration",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "r2:cors": "wrangler r2 bucket cors set tpaas-assets --file r2-cors/tpaas-assets.json -y"
   },
   "dependencies": {
     "discord-interactions": "^4.4.0"

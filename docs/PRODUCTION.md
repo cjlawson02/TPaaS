@@ -28,6 +28,14 @@ Replace placeholders in [`wrangler.jsonc`](../wrangler.jsonc):
 | `tpaas.chrislawson.dev` | `tpaas` worker |
 | `assets.tpaas.chrislawson.dev` | R2 public custom domain on **`tpaas-assets` only** |
 
+After creating the bucket, allow cross-origin reads so embedders (e.g. tierlist.chrislawson.dev) can export images:
+
+```bash
+npm run r2:cors
+```
+
+Config: [`r2-cors/tpaas-assets.json`](../r2-cors/tpaas-assets.json) — public GET on approved assets only; safe because the bucket holds no private data.
+
 **Do not** attach a public domain to `tpaas-pending`. Unreleased uploads are served only via `/preview/pending/{id}` on the worker.
 
 Remove any old `submit.tpaas` DNS / custom domain if it was configured previously.
